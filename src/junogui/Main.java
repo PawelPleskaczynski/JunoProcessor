@@ -34,7 +34,7 @@ public final class Main extends Application {
     private Button processButton = new Button("Process the image");
     private Button openButton = new Button("Open a picture");
     private ProgressBar progressBar = new ProgressBar();
-    private Button openDirectory = new Button("Open a directory");
+    //private Button openDirectory = new Button("Open a directory");
 
     @Override
     public void start(final Stage stage) {
@@ -57,19 +57,6 @@ public final class Main extends Application {
                     }
                 });
 
-        openDirectory.setOnAction(e -> {
-            final DirectoryChooser directoryChooser =
-                    new DirectoryChooser();
-            final File selectedDirectory =
-                    directoryChooser.showDialog(stage);
-            if (selectedDirectory != null) {
-                path = selectedDirectory.getAbsolutePath();
-                for (File in selectedDirectory.getAbsolutePath()) {
-
-                }
-            }
-        });
-
         processButton.setOnAction(
                 e -> assembleFrames(sliceRAW(Objects.requireNonNull(loadImage(path)))));
 
@@ -77,7 +64,7 @@ public final class Main extends Application {
 
         GridPane.setConstraints(loadLabel, 0, 0);
         GridPane.setConstraints(openButton, 0, 1);
-        GridPane.setConstraints(openDirectory, 0, 1);
+        //GridPane.setConstraints(openDirectory, 0, 1);
         GridPane.setConstraints(selectedLabel, 0, 4);
         GridPane.setConstraints(statusLabel, 0, 5);
         GridPane.setConstraints(progressBar, 0, 6);
@@ -85,7 +72,7 @@ public final class Main extends Application {
         GridPane.setConstraints(processButton, 0, 9);
         inputGridPane.setHgap(6);
         inputGridPane.setVgap(6);
-        inputGridPane.getChildren().addAll(loadLabel, openButton, openDirectory, selectedLabel, statusLabel, progressBar, processLabel, processButton);
+        inputGridPane.getChildren().addAll(loadLabel, openButton, /*openDirectory,*/ selectedLabel, statusLabel, progressBar, processLabel, processButton);
 
         final Pane rootGroup = new VBox(12);
         rootGroup.getChildren().addAll(inputGridPane);
