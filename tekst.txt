@@ -1,6 +1,0 @@
-images
-JunoProcessor.iml
-out
-README.md
-src
-tekst.txt
