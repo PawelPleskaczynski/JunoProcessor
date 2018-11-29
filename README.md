@@ -17,17 +17,33 @@ images.
 Open the software using `JunoProcessor.jar` executable, located in
 [Releases](https://github.com/PawelPleskaczynski/JunoProcessor/releases) tab.
 
-To load a JunoCam RAW image, click `Open Picture` button. Select your
+##### Processing single image
+
+- Load a JunoCam RAW image by clicking `Open a picture` button. Select your
 image via your default file selector.
 
-Click `Process the image` button to start processing the data. Please allow
+- Select `CH4` checkbox if the image is not RGB, but methane.
+
+- Click `Process the image` button to start processing the data. Please allow
 software up to a minute to process the data.
 
-Once processing is finished, you'll be notified by a pop-up, and you'll be able
+- Once processing is finished, you'll be notified by a pop-up, and you'll be able
 to retrieve final products in the same directory as input data, in a folder named
 after the input file's name.
 
-[//]: # (Batch processing)
+##### Batch processing
+
+- Load a directory with RAW JunoCam images by clicking `Batch processing`
+button.
+
+- Select `CH4` checkbox if the image is not RGB, but methane.
+
+- Click `Process the image` button to start processing the data. Please allow
+software to work for a couple of minutes.
+
+- Once processing is finished, you'll be able to retrieve final products
+in the same directory as input data, in directories named after the input file's
+name.
 
 ### FAQ
 
