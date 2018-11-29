@@ -7,6 +7,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ProgressBar;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
@@ -24,10 +25,14 @@ import java.util.Objects;
 
 public final class Main extends Application {
 
-    private Label statusLabel = new Label("No image selected");
+    private Label selectedLabel = new Label("No image selected");
+    private Label statusLabel = new Label("Idle");
     private String path;
     private String original_directory;
     private String name;
+    private Button processButton = new Button("Process the image");
+    private Button openButton = new Button("Open a picture");
+    private ProgressBar progressBar = new ProgressBar();
 
     @Override
     public void start(final Stage stage) {
@@ -36,10 +41,9 @@ public final class Main extends Application {
         FileChooser fileChooser = new FileChooser();
 
         Label loadLabel = new Label("First, load desired Juno image");
-        Button openButton = new Button("Open a picture");
         //Button openDirectory = new Button("Open a directory");
         Label processLabel = new Label("Then process the image using button below");
-        Button processButton = new Button("Process the image");
+        progressBar.setProgress(0);
 
         processButton.setDisable(true);
 
@@ -59,12 +63,14 @@ public final class Main extends Application {
 
         GridPane.setConstraints(loadLabel, 0, 0);
         GridPane.setConstraints(openButton, 0, 1);
-        GridPane.setConstraints(statusLabel, 0, 4);
-        GridPane.setConstraints(processLabel, 0, 6);
-        GridPane.setConstraints(processButton, 0, 7);
+        GridPane.setConstraints(selectedLabel, 0, 4);
+        GridPane.setConstraints(statusLabel, 0, 5);
+        GridPane.setConstraints(progressBar, 0, 6);
+        GridPane.setConstraints(processLabel, 0, 8);
+        GridPane.setConstraints(processButton, 0, 9);
         inputGridPane.setHgap(6);
         inputGridPane.setVgap(6);
-        inputGridPane.getChildren().addAll(loadLabel, openButton, statusLabel, processLabel, processButton);
+        inputGridPane.getChildren().addAll(loadLabel, openButton, selectedLabel, statusLabel, progressBar, processLabel, processButton);
 
         final Pane rootGroup = new VBox(12);
         rootGroup.getChildren().addAll(inputGridPane);
@@ -85,15 +91,16 @@ public final class Main extends Application {
         if (pos > 0) {
             name = name.substring(0, pos);
         }
-        statusLabel.setText("Current file: " + name);
+        selectedLabel.setText("Current file: " + name);
     }
 
     private BufferedImage loadImage(String path) {
+        progressBar.setProgress(ProgressBar.INDETERMINATE_PROGRESS);
         try {
             return ImageIO.read(new File(path));
         }
         catch (IOException e) {
-            showDialog("Error", "Cannot read file", path, true);
+            showDialog("Error", "An error happened", "Cannot read file " + path, true);
             return null;
         }
     }
@@ -108,6 +115,7 @@ public final class Main extends Application {
         try {
             thread.join();
         } catch (InterruptedException e) {
+            showDialog("Error", "An error happened", "", true);
             e.printStackTrace();
         }
         return img_temp[0];
@@ -125,12 +133,18 @@ public final class Main extends Application {
         try {
             thread.join();
         } catch (InterruptedException e) {
+            showDialog("Error", "An error happened", "", true);
             e.printStackTrace();
         }
         return result;
     }
 
     private void assembleFrames(BufferedImage[] array) {
+        Platform.runLater(() -> {
+            statusLabel.setText("Processing...");
+            processButton.setDisable(true);
+            openButton.setDisable(true);
+        });
 
         Runnable runnableB = () -> {
             BufferedImage finalBlueImage = new BufferedImage(array[0].getWidth(), (array[0].getHeight() * (array.length / 3)),1);
@@ -138,13 +152,14 @@ public final class Main extends Application {
             int heightCurrentB = 0;
             for (int i = 0; i < array.length; i += 3) { //go through all blue framelets
                 g2dB.drawImage(array[i], 0, heightCurrentB, null);
-                heightCurrentB += 113;
+                heightCurrentB += 114;
             }
 
             try {
                 new File(original_directory + "/" + name + "/").mkdirs();
                 ImageIO.write(finalBlueImage, "png", new File(original_directory + "/" + name + "/" + name + "_blue_channel.png"));
             } catch (IOException e) {
+                showDialog("Error", "An error happened", "Cannot write to " + original_directory + "/" + name + "/" + name + "_blue_channel.png", true);
                 e.printStackTrace();
             }
         };
@@ -157,13 +172,14 @@ public final class Main extends Application {
             int heightCurrentG = 0;
             for (int i = 1; i < array.length; i += 3) { //go through all green framelets
                 g2dG.drawImage(array[i], 0, heightCurrentG, null);
-                heightCurrentG += 113;
+                heightCurrentG += 114;
             }
 
             try {
                 new File(original_directory + "/" + name + "/").mkdirs();
                 ImageIO.write(finalGreenImage, "png", new File(original_directory + "/" + name + "/" + name + "_green_channel.png"));
             } catch (IOException e) {
+                showDialog("Error", "An error happened", "Cannot write to " + original_directory + "/" + name + "/" + name + "_blue_channel.png", true);
                 e.printStackTrace();
             }
         };
@@ -176,13 +192,14 @@ public final class Main extends Application {
             int heightCurrentR =0;
             for (int i=2;i<array.length; i += 3) { //go through all red framelets
                 g2dR.drawImage(array[i], 0, heightCurrentR, null);
-                heightCurrentR +=113;
+                heightCurrentR +=114;
             }
 
             try {
                 new File(original_directory + "/" + name + "/").mkdirs();
                 ImageIO.write(finalRedImage, "png", new File(original_directory + "/" + name + "/" + name + "_red_channel.png"));
             } catch (IOException e) {
+                showDialog("Error", "An error happened", "Cannot write to " + original_directory + "/" + name + "/" + name + "_blue_channel.png", true);
                 e.printStackTrace();
             }
         };
@@ -195,8 +212,16 @@ public final class Main extends Application {
                 threadG.join();
                 threadR.join();
 
-                Platform.runLater(() -> showDialog("Success", "Done", "Finished processing file " + name, false));
+                // todo: only if not batch-processing
+                Platform.runLater(() -> {
+                    progressBar.setProgress(0);
+                    statusLabel.setText("Idle");
+                    processButton.setDisable(false);
+                    openButton.setDisable(false);
+                    showDialog("Success", "Done", "Finished processing file " + name, false);
+                });
             } catch (InterruptedException e) {
+                showDialog("Error", "An error happened", "", true);
                 e.printStackTrace();
             }
         };
@@ -205,6 +230,13 @@ public final class Main extends Application {
     }
 
     private void showDialog(String title, String header, String message, boolean error) {
+        if (error) {
+            statusLabel.setText("Idle");
+            processButton.setDisable(false);
+            openButton.setDisable(false);
+            progressBar.setProgress(0);
+        }
+
         Alert alert = new Alert(error ? Alert.AlertType.ERROR : Alert.AlertType.INFORMATION);
         alert.initStyle(StageStyle.UTILITY);
         alert.setTitle(title);
@@ -215,4 +247,5 @@ public final class Main extends Application {
 
         alert.showAndWait();
     }
+
 }
