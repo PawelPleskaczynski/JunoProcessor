@@ -1,5 +1,6 @@
 package junogui;
 
+import com.objectplanet.image.PngEncoder;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -19,7 +20,9 @@ import javafx.stage.StageStyle;
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Objects;
@@ -236,10 +239,14 @@ public final class Main extends Application {
                 try {
                     if (directory) {
                         new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/").mkdirs();
-                        ImageIO.write(finalMethaneImage, "png", new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/" + name_array.get(iteration) + "_methane.png"));
+                        BufferedOutputStream imageOutputStream = new BufferedOutputStream(new FileOutputStream(new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/" + name_array.get(iteration) + "_methane.png")));
+                        new PngEncoder().encode(finalMethaneImage, imageOutputStream);
+                        imageOutputStream.close();
                     } else {
                         new File(original_directory + "/" + name + "/").mkdirs();
-                        ImageIO.write(finalMethaneImage, "png", new File(original_directory + "/" + name + "/" + name + "_methane.png"));
+                        BufferedOutputStream imageOutputStream = new BufferedOutputStream(new FileOutputStream(new File(original_directory + "/" + name + "/" + name + "_methane.png")));
+                        new PngEncoder().encode(finalMethaneImage, imageOutputStream);
+                        imageOutputStream.close();
                     }
                 } catch (IOException e) {
                     if (directory) {
@@ -324,10 +331,14 @@ public final class Main extends Application {
                         try {
                             if (directory) {
                                 new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/").mkdirs();
-                                ImageIO.write(finalRedImage[0], "png", new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/" + name_array.get(iteration) + "_red_channel.png"));
+                                BufferedOutputStream imageOutputStream = new BufferedOutputStream(new FileOutputStream(new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/" + name_array.get(iteration) + "_red_channel.png")));
+                                new PngEncoder().encode(finalRedImage[0], imageOutputStream);
+                                imageOutputStream.close();
                             } else {
                                 new File(original_directory + "/" + name + "/").mkdirs();
-                                ImageIO.write(finalRedImage[0], "png", new File(original_directory + "/" + name + "/" + name + "_red_channel.png"));
+                                BufferedOutputStream imageOutputStream = new BufferedOutputStream(new FileOutputStream(new File(original_directory + "/" + name + "/" + name + "_red_channel.png")));
+                                new PngEncoder().encode(finalRedImage[0], imageOutputStream);
+                                imageOutputStream.close();
                             }
                         } catch (IOException e) {
                             if (directory) {
@@ -345,10 +356,14 @@ public final class Main extends Application {
                         try {
                             if (directory) {
                                 new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/").mkdirs();
-                                ImageIO.write(finalGreenImage[0], "png", new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/" + name_array.get(iteration) + "_green_channel.png"));
+                                BufferedOutputStream imageOutputStream = new BufferedOutputStream(new FileOutputStream(new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/" + name_array.get(iteration) + "_green_channel.png")));
+                                new PngEncoder().encode(finalGreenImage[0], imageOutputStream);
+                                imageOutputStream.close();
                             } else {
                                 new File(original_directory + "/" + name + "/").mkdirs();
-                                ImageIO.write(finalGreenImage[0], "png", new File(original_directory + "/" + name + "/" + name + "_green_channel.png"));
+                                BufferedOutputStream imageOutputStream = new BufferedOutputStream(new FileOutputStream(new File(original_directory + "/" + name + "/" + name + "_green_channel.png")));
+                                new PngEncoder().encode(finalGreenImage[0], imageOutputStream);
+                                imageOutputStream.close();
                             }
                         } catch (IOException e) {
                             if (directory) {
@@ -366,10 +381,14 @@ public final class Main extends Application {
                         try {
                             if (directory) {
                                 new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/").mkdirs();
-                                ImageIO.write(finalBlueImage[0], "png", new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/" + name_array.get(iteration) + "_blue_channel.png"));
+                                BufferedOutputStream imageOutputStream = new BufferedOutputStream(new FileOutputStream(new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/" + name_array.get(iteration) + "_blue_channel.png")));
+                                new PngEncoder().encode(finalBlueImage[0], imageOutputStream);
+                                imageOutputStream.close();
                             } else {
                                 new File(original_directory + "/" + name + "/").mkdirs();
-                                ImageIO.write(finalBlueImage[0], "png", new File(original_directory + "/" + name + "/" + name + "_blue_channel.png"));
+                                BufferedOutputStream imageOutputStream = new BufferedOutputStream(new FileOutputStream(new File(original_directory + "/" + name + "/" + name + "_blue_channel.png")));
+                                new PngEncoder().encode(finalBlueImage[0], imageOutputStream);
+                                imageOutputStream.close();
                             }
                         } catch (IOException e) {
                             if (directory) {
@@ -389,10 +408,14 @@ public final class Main extends Application {
                             try {
                                 if (directory) {
                                     new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/").mkdirs();
-                                    ImageIO.write(rgbImage, "png", new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/" + name_array.get(iteration) + "_RGB.png"));
+                                    BufferedOutputStream imageOutputStream = new BufferedOutputStream(new FileOutputStream(new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/" + name_array.get(iteration) + "_RGB.png")));
+                                    new PngEncoder().encode(rgbImage, imageOutputStream);
+                                    imageOutputStream.close();
                                 } else {
                                     new File(original_directory + "/" + name + "/").mkdirs();
-                                    ImageIO.write(rgbImage, "png", new File(original_directory + "/" + name + "/" + name + "_RGB.png"));
+                                    BufferedOutputStream imageOutputStream = new BufferedOutputStream(new FileOutputStream(new File(original_directory + "/" + name + "/" + name + "_RGB.png")));
+                                    new PngEncoder().encode(rgbImage, imageOutputStream);
+                                    imageOutputStream.close();
                                 }
                             } catch (IOException e) {
                                 if (directory) {
