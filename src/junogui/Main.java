@@ -31,6 +31,7 @@ public final class Main extends Application {
 
     private Label selectedLabel = new Label("No image selected");
     private Label statusLabel = new Label("Idle");
+    private Label creditsLabel = new Label("Made by Pawel Pleskaczynski and Karol Masztalerz");
     private ArrayList<String> paths = new ArrayList<>();
     private String path;
     private String original_directory;
@@ -42,8 +43,10 @@ public final class Main extends Application {
     private ProgressBar progressBar = new ProgressBar();
     private Button openDirectory = new Button("Batch processing");
     private boolean directory;
-    private CheckBox methaneBox = new CheckBox("CH4");
+    private CheckBox methaneBox = new CheckBox("Image is single-band CH4");
     private CheckBox rgbAlignBox = new CheckBox("RGB Align");
+    private CheckBox rgbOnlyBox = new CheckBox("Output RGB only");
+    private CheckBox openLaterBox = new CheckBox("Open files after processing");
     private int saved_images = 0;
 
     @Override
@@ -85,37 +88,40 @@ public final class Main extends Application {
                 e -> {
                     saved_images = 0;
                     if (!directory) statusLabel.setText("Processing " + name);
-                    processButton.setDisable(true);
-                    openButton.setDisable(true);
-                    openDirectory.setDisable(true);
-                    rgbAlignBox.setDisable(true);
-                    methaneBox.setDisable(true);
+                    disableCheckBoxes(true);
 
                     if (directory) {
+                        statusLabel.setText("Processing " + paths.size() + " files...");
                         Runnable runnable = () -> {
                             for (int i = 0; i < paths.size(); i++) {
-                                assembleFrames(sliceRAW(Objects.requireNonNull(loadImage(paths.get(i), i))), i);
+                                assembleFrames(sliceRAW(loadImage(paths.get(i), i)), i);
                             }
                         };
                         Thread thread = new Thread(runnable);
                         thread.start();
                     } else {
-                        assembleFrames(sliceRAW(Objects.requireNonNull(loadImage(path, 0))), 0);
+                        assembleFrames(sliceRAW(loadImage(path, 0)), 0);
                     }
 
                     progressBar.setProgress(ProgressIndicator.INDETERMINATE_PROGRESS);
                 });
 
+        rgbOnlyBox.setDisable(true);
+
         methaneBox.selectedProperty().addListener((observableValue, aBoolean, t1) -> {
             if (rgbAlignBox.isSelected()) {
                 rgbAlignBox.setSelected(!t1);
+                rgbOnlyBox.setDisable(t1);
             }
+            rgbOnlyBox.setSelected(false);
         });
 
         rgbAlignBox.selectedProperty().addListener((observableValue, aBoolean, t1) -> {
             if (methaneBox.isSelected()) {
                 methaneBox.setSelected(!t1);
             }
+            rgbOnlyBox.setSelected(false);
+            rgbOnlyBox.setDisable(!t1);
         });
 
         final GridPane inputGridPane = new GridPane();
@@ -123,6 +129,8 @@ public final class Main extends Application {
         GridPane.setConstraints(loadLabel, 0, 0);
         GridPane.setConstraints(methaneBox, 1, 0);
         GridPane.setConstraints(rgbAlignBox, 1, 1);
+        GridPane.setConstraints(rgbOnlyBox, 1, 2);
+        GridPane.setConstraints(openLaterBox, 1, 3);
         GridPane.setConstraints(openButton, 0, 1);
         GridPane.setConstraints(openDirectory, 0, 2);
         GridPane.setConstraints(selectedLabel, 0, 4);
@@ -130,9 +138,11 @@ public final class Main extends Application {
         GridPane.setConstraints(progressBar, 0, 6);
         GridPane.setConstraints(processLabel, 0, 8);
         GridPane.setConstraints(processButton, 0, 9);
+        GridPane.setConstraints(creditsLabel, 0, 10);
         inputGridPane.setHgap(6);
         inputGridPane.setVgap(6);
-        inputGridPane.getChildren().addAll(loadLabel, methaneBox, rgbAlignBox, openButton, openDirectory, selectedLabel, statusLabel, progressBar, processLabel, processButton);
+        inputGridPane.getChildren().addAll(loadLabel, methaneBox, rgbAlignBox, rgbOnlyBox, openLaterBox, openButton,
+                openDirectory, selectedLabel, statusLabel, progressBar, processLabel, processButton, creditsLabel);
 
         final Pane rootGroup = new VBox(12);
         rootGroup.getChildren().addAll(inputGridPane);
@@ -212,11 +222,14 @@ public final class Main extends Application {
     }
 
     private BufferedImage[] sliceRAW(BufferedImage image) {
-        BufferedImage[] result = new BufferedImage[image.getHeight() / 128];
-        for (int i = 0; i < result.length; i++) {
-            result[i] = cropImg(image, i);
+        if (image != null) {
+            BufferedImage[] result = new BufferedImage[image.getHeight() / 128];
+            for (int i = 0; i < result.length; i++) {
+                result[i] = cropImg(image, i);
+            }
+            return result;
         }
-        return result;
+        return null;
     }
 
     private void assembleFrames(BufferedImage[] image, int iteration) {
@@ -267,11 +280,7 @@ public final class Main extends Application {
                     Platform.runLater(() -> {
                         progressBar.setProgress(0);
                         statusLabel.setText("Idle");
-                        processButton.setDisable(false);
-                        openButton.setDisable(false);
-                        openDirectory.setDisable(false);
-                        rgbAlignBox.setDisable(false);
-                        methaneBox.setDisable(false);
+                        disableCheckBoxes(false);
                         if (!directory) showDialog("Success", "Done", "Finished processing file " + name, false);
                     });
                 } catch (InterruptedException e) {
@@ -327,80 +336,87 @@ public final class Main extends Application {
                     threadG.join();
                     threadR.join();
 
-                    Runnable runnableSaveR = () -> {
-                        try {
-                            if (directory) {
-                                new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/").mkdirs();
-                                BufferedOutputStream imageOutputStream = new BufferedOutputStream(new FileOutputStream(new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/" + name_array.get(iteration) + "_red_channel.png")));
-                                new PngEncoder().encode(finalRedImage[0], imageOutputStream);
-                                imageOutputStream.close();
-                            } else {
-                                new File(original_directory + "/" + name + "/").mkdirs();
-                                BufferedOutputStream imageOutputStream = new BufferedOutputStream(new FileOutputStream(new File(original_directory + "/" + name + "/" + name + "_red_channel.png")));
-                                new PngEncoder().encode(finalRedImage[0], imageOutputStream);
-                                imageOutputStream.close();
+                    if (!rgbOnlyBox.isSelected()) {
+                        Runnable runnableSaveR = () -> {
+                            try {
+                                if (directory) {
+                                    new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/").mkdirs();
+                                    BufferedOutputStream imageOutputStream = new BufferedOutputStream(new FileOutputStream(new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/" + name_array.get(iteration) + "_red_channel.png")));
+                                    new PngEncoder().encode(finalRedImage[0], imageOutputStream);
+                                    imageOutputStream.close();
+                                } else {
+                                    new File(original_directory + "/" + name + "/").mkdirs();
+                                    BufferedOutputStream imageOutputStream = new BufferedOutputStream(new FileOutputStream(new File(original_directory + "/" + name + "/" + name + "_red_channel.png")));
+                                    new PngEncoder().encode(finalRedImage[0], imageOutputStream);
+                                    imageOutputStream.close();
+                                }
+                            } catch (IOException e) {
+                                if (directory) {
+                                    showDialog("Error", "An error happened", "Cannot write to " + original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/" + name_array.get(iteration) + "_red_channel.png", true);
+                                } else {
+                                    showDialog("Error", "An error happened", "Cannot write to " + original_directory + "/" + name + "/" + name + "_red_channel.png", true);
+                                }
+                                e.printStackTrace();
                             }
-                        } catch (IOException e) {
-                            if (directory) {
-                                showDialog("Error", "An error happened", "Cannot write to " + original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/" + name_array.get(iteration) + "_red_channel.png", true);
-                            } else {
-                                showDialog("Error", "An error happened", "Cannot write to " + original_directory + "/" + name + "/" + name + "_red_channel.png", true);
-                            }
-                            e.printStackTrace();
-                        }
-                    };
-                    Thread threadSaveR = new Thread(runnableSaveR);
-                    threadSaveR.start();
+                        };
+                        Thread threadSaveR = new Thread(runnableSaveR);
+                        threadSaveR.start();
 
-                    Runnable runnableSaveG = () -> {
-                        try {
-                            if (directory) {
-                                new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/").mkdirs();
-                                BufferedOutputStream imageOutputStream = new BufferedOutputStream(new FileOutputStream(new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/" + name_array.get(iteration) + "_green_channel.png")));
-                                new PngEncoder().encode(finalGreenImage[0], imageOutputStream);
-                                imageOutputStream.close();
-                            } else {
-                                new File(original_directory + "/" + name + "/").mkdirs();
-                                BufferedOutputStream imageOutputStream = new BufferedOutputStream(new FileOutputStream(new File(original_directory + "/" + name + "/" + name + "_green_channel.png")));
-                                new PngEncoder().encode(finalGreenImage[0], imageOutputStream);
-                                imageOutputStream.close();
+                        Runnable runnableSaveG = () -> {
+                            try {
+                                if (directory) {
+                                    new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/").mkdirs();
+                                    BufferedOutputStream imageOutputStream = new BufferedOutputStream(new FileOutputStream(new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/" + name_array.get(iteration) + "_green_channel.png")));
+                                    new PngEncoder().encode(finalGreenImage[0], imageOutputStream);
+                                    imageOutputStream.close();
+                                } else {
+                                    new File(original_directory + "/" + name + "/").mkdirs();
+                                    BufferedOutputStream imageOutputStream = new BufferedOutputStream(new FileOutputStream(new File(original_directory + "/" + name + "/" + name + "_green_channel.png")));
+                                    new PngEncoder().encode(finalGreenImage[0], imageOutputStream);
+                                    imageOutputStream.close();
+                                }
+                            } catch (IOException e) {
+                                if (directory) {
+                                    showDialog("Error", "An error happened", "Cannot write to " + original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/" + name_array.get(iteration) + "_green_channel.png", true);
+                                } else {
+                                    showDialog("Error", "An error happened", "Cannot write to " + original_directory + "/" + name + "/" + name + "_green_channel.png", true);
+                                }
+                                e.printStackTrace();
                             }
-                        } catch (IOException e) {
-                            if (directory) {
-                                showDialog("Error", "An error happened", "Cannot write to " + original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/" + name_array.get(iteration) + "_green_channel.png", true);
-                            } else {
-                                showDialog("Error", "An error happened", "Cannot write to " + original_directory + "/" + name + "/" + name + "_green_channel.png", true);
-                            }
-                            e.printStackTrace();
-                        }
-                    };
-                    Thread threadSaveG = new Thread(runnableSaveG);
-                    threadSaveG.start();
+                        };
+                        Thread threadSaveG = new Thread(runnableSaveG);
+                        threadSaveG.start();
 
-                    Runnable runnableSaveB = () -> {
-                        try {
-                            if (directory) {
-                                new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/").mkdirs();
-                                BufferedOutputStream imageOutputStream = new BufferedOutputStream(new FileOutputStream(new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/" + name_array.get(iteration) + "_blue_channel.png")));
-                                new PngEncoder().encode(finalBlueImage[0], imageOutputStream);
-                                imageOutputStream.close();
-                            } else {
-                                new File(original_directory + "/" + name + "/").mkdirs();
-                                BufferedOutputStream imageOutputStream = new BufferedOutputStream(new FileOutputStream(new File(original_directory + "/" + name + "/" + name + "_blue_channel.png")));
-                                new PngEncoder().encode(finalBlueImage[0], imageOutputStream);
-                                imageOutputStream.close();
+                        Runnable runnableSaveB = () -> {
+                            try {
+                                if (directory) {
+                                    new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/").mkdirs();
+                                    BufferedOutputStream imageOutputStream = new BufferedOutputStream(new FileOutputStream(new File(original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/" + name_array.get(iteration) + "_blue_channel.png")));
+                                    new PngEncoder().encode(finalBlueImage[0], imageOutputStream);
+                                    imageOutputStream.close();
+                                } else {
+                                    new File(original_directory + "/" + name + "/").mkdirs();
+                                    BufferedOutputStream imageOutputStream = new BufferedOutputStream(new FileOutputStream(new File(original_directory + "/" + name + "/" + name + "_blue_channel.png")));
+                                    new PngEncoder().encode(finalBlueImage[0], imageOutputStream);
+                                    imageOutputStream.close();
+                                }
+                            } catch (IOException e) {
+                                if (directory) {
+                                    showDialog("Error", "An error happened", "Cannot write to " + original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/" + name_array.get(iteration) + "_blue_channel.png", true);
+                                } else {
+                                    showDialog("Error", "An error happened", "Cannot write to " + original_directory + "/" + name + "/" + name + "_blue_channel.png", true);
+                                }
+                                e.printStackTrace();
                             }
-                        } catch (IOException e) {
-                            if (directory) {
-                                showDialog("Error", "An error happened", "Cannot write to " + original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/" + name_array.get(iteration) + "_blue_channel.png", true);
-                            } else {
-                                showDialog("Error", "An error happened", "Cannot write to " + original_directory + "/" + name + "/" + name + "_blue_channel.png", true);
-                            }
-                            e.printStackTrace();
-                        }
-                    };
-                    Thread threadSaveB = new Thread(runnableSaveB);
-                    threadSaveB.start();
+                        };
+                        Thread threadSaveB = new Thread(runnableSaveB);
+                        threadSaveB.start();
+
+                        threadSaveR.join();
+                        threadSaveG.join();
+                        threadSaveB.join();
+                    }
+
 
                     if (rgbAlignBox.isSelected()) {
                         Runnable runnableAlign = () -> {
@@ -431,26 +447,31 @@ public final class Main extends Application {
                         threadAlign.join();
                     }
 
-                    threadSaveR.join();
-                    threadSaveG.join();
-                    threadSaveB.join();
-
                     saved_images++;
 
                     if (directory) {
-                        if (saved_images == paths.size())
+                        if (saved_images == paths.size()) {
+                            if (openLaterBox.isSelected()) {
+                                Desktop.getDesktop().open(new File(original_directory_array.get(0)));
+                            }
                             Platform.runLater(() -> {
                                 progressBar.setProgress(0);
                                 statusLabel.setText("Idle");
-                                processButton.setDisable(false);
-                                openButton.setDisable(false);
-                                openDirectory.setDisable(false);
-                                rgbAlignBox.setDisable(false);
-                                methaneBox.setDisable(false);
-                                if (!directory) showDialog("Success", "Done", "Finished processing file " + name, false);
+                                disableCheckBoxes(false);
                             });
+                        }
+                    } else {
+                        if (openLaterBox.isSelected()) {
+                            Desktop.getDesktop().open(new File(original_directory + "/" + name));
+                        }
+                        Platform.runLater(() -> {
+                            progressBar.setProgress(0);
+                            statusLabel.setText("Idle");
+                            disableCheckBoxes(false);
+                            if (!directory) showDialog("Success", "Done", "Finished processing file " + name, false);
+                        });
                     }
-                } catch (InterruptedException e) {
+                } catch (InterruptedException | IOException e) {
                     showDialog("Error", "An error happened", "", true);
                     e.printStackTrace();
                 }
@@ -505,12 +526,8 @@ public final class Main extends Application {
     private void showDialog(String title, String header, String message, boolean error) {
         if (error) {
             statusLabel.setText("Idle");
-            processButton.setDisable(false);
-            openButton.setDisable(false);
-            openDirectory.setDisable(false);
-            rgbAlignBox.setDisable(false);
-            methaneBox.setDisable(false);
             progressBar.setProgress(0);
+            disableCheckBoxes(false);
         }
 
         Alert alert = new Alert(error ? Alert.AlertType.ERROR : Alert.AlertType.INFORMATION);
@@ -522,6 +539,16 @@ public final class Main extends Application {
         alert.getDialogPane().setContent(text);
 
         alert.showAndWait();
+    }
+
+    private void disableCheckBoxes(boolean enabled) {
+        processButton.setDisable(enabled);
+        openButton.setDisable(enabled);
+        openDirectory.setDisable(enabled);
+        rgbAlignBox.setDisable(enabled);
+        methaneBox.setDisable(enabled);
+        rgbOnlyBox.setDisable(enabled);
+        openLaterBox.setDisable(enabled);
     }
 
 }
