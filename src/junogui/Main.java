@@ -26,6 +26,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Paweł Pleskaczyński
@@ -54,6 +57,11 @@ public final class Main extends Application {
 
     @Override
     public void start(final Stage stage) {
+        stage.setOnCloseRequest(t -> {
+            Platform.exit();
+            System.exit(0);
+        });
+
         stage.setTitle("Juno Processor");
         Label loadLabel = new Label("First, load desired Juno image");
         Label processLabel = new Label("Then process the image using button below");
@@ -87,24 +95,37 @@ public final class Main extends Application {
 
         processButton.setOnAction(
                 e -> {
-                    saved_images = 0;
-                    if (!directory) statusLabel.setText("Processing " + name_array.get(0));
-                    disableCheckBoxes(true);
-
                     Runnable runnable = () -> {
+                        saved_images = 0;
+                        Platform.runLater(() -> {
+                            if (!directory) statusLabel.setText("Processing " + name_array.get(0));
+                            disableCheckBoxes(true);
+                            progressBar.setProgress(ProgressIndicator.INDETERMINATE_PROGRESS);
+                        });
+
+                        ExecutorService executor = Executors.newFixedThreadPool(
+                                Runtime.getRuntime().availableProcessors());
+
                         if (directory) {
-                            Platform.runLater(() -> statusLabel.setText("Processing " + paths.size() + " files..."));
+                            Platform.runLater(() -> statusLabel.setText("Processed " + saved_images + "/" + paths.size()
+                                    + " files..."));
                             for (int i = 0; i < paths.size(); i++) {
-                                assembleFrames(sliceRAW(loadImage(paths.get(i), i)), i);
+                                int finalI = i;
+                                executor.submit(() -> assembleFrames(
+                                        sliceRAW(loadImage(paths.get(finalI), finalI)), finalI));
                             }
                         } else {
-                            assembleFrames(sliceRAW(loadImage(paths.get(0), 0)), 0);
+                            executor.submit(() -> assembleFrames(sliceRAW(loadImage(paths.get(0), 0)), 0));
+                        }
+
+                        try {
+                            executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+                        } catch (InterruptedException err) {
+                            err.printStackTrace();
                         }
                     };
                     Thread thread = new Thread(runnable);
                     thread.start();
-
-                    progressBar.setProgress(ProgressIndicator.INDETERMINATE_PROGRESS);
                 });
 
         rgbOnlyBox.setDisable(true);
@@ -164,10 +185,13 @@ public final class Main extends Application {
         paths.clear();
         for (final File fileEntry : Objects.requireNonNull(directory.listFiles())) {
             if (!fileEntry.isDirectory()) {
-                paths.add(fileEntry.getPath());
-                original_directory_array.add(fileEntry.getParent());
-                name_array.add(fileEntry.getName());
-                selectedLabel.setText("Found " + paths.size() + " files.");
+                if (fileEntry.getName().endsWith("png") || fileEntry.getName().endsWith("jpg") ||
+                        fileEntry.getName().endsWith("jpeg")) {
+                    paths.add(fileEntry.getPath());
+                    original_directory_array.add(fileEntry.getParent());
+                    name_array.add(fileEntry.getName());
+                    selectedLabel.setText("Found " + paths.size() + " files.");
+                }
             }
         }
     }
@@ -177,9 +201,9 @@ public final class Main extends Application {
      * @param file - Path to the file
      */
     private void openFile(File file) {
-        paths.set(0, file.getPath());
-        original_directory_array.set(0, file.getParent());
-        name_array.set(0, file.getName());
+        paths.add(0, file.getPath());
+        original_directory_array.add(0, file.getParent());
+        name_array.add(0, file.getName());
         selectedLabel.setText("Current file: " + name_array.get(0));
     }
 
@@ -227,7 +251,7 @@ public final class Main extends Application {
     }
 
     /**
-     * Slide the image to 128px high stripe (128px because of JunoCam construction)
+     * Slice the image to 128px high stripe (128px because of JunoCam construction)
      * @param image - The BufferedImage to process
      * @param line - nth slice of the image
      * @return Sliced stripe
@@ -242,14 +266,13 @@ public final class Main extends Application {
      * @param iteration - nth image to process
      */
     private void assembleFrames(BufferedImage[] image, int iteration) {
-        final BufferedImage[] finalBlueImage = new BufferedImage[1];
-        final BufferedImage[] finalGreenImage = new BufferedImage[1];
-        final BufferedImage[] finalRedImage = new BufferedImage[1];
+        final BufferedImage[] finalImage = new BufferedImage[3];
         final BufferedImage[] finalMethaneImage = new BufferedImage[1];
         final BufferedImage[] rgbImage = new BufferedImage[1];
 
         if (methaneBox.isSelected()) {
-            Runnable runnable = () -> {
+            ExecutorService executor = Executors.newCachedThreadPool();
+            executor.submit(() -> {
                 finalMethaneImage[0] = new BufferedImage(image[0].getWidth(), (image[0].getHeight() * (image.length)),
                         BufferedImage.TYPE_BYTE_GRAY);
                 Graphics2D g2d = finalMethaneImage[0].createGraphics();
@@ -262,163 +285,105 @@ public final class Main extends Application {
                 g2d.dispose();
 
                 saveImage(finalMethaneImage[0], iteration, "methane");
-            };
-            Thread thread = new Thread(runnable);
-            thread.start();
+            });
 
-            Runnable runnableWait = () -> {
-                try {
-                    thread.join();
+            executor.shutdown();
+            try {
+                executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
 
-                    saved_images++;
-
-                    if (directory) {
-                        if (saved_images == paths.size()) {
-                            if (openLaterBox.isSelected()) {
-                                Desktop.getDesktop().open(new File(original_directory_array.get(0)));
-                            }
-                        }
-                    } else {
-                        if (openLaterBox.isSelected()) {
-                            Desktop.getDesktop().open(new File(original_directory_array.get(iteration) + "/" +
-                                    name_array.get(iteration)));
-                        }
+        } else {
+            ExecutorService executor = Executors.newCachedThreadPool();
+            for (int i = 0; i < 3; i++) {
+                int finalI = i;
+                executor.submit(() -> {
+                    finalImage[finalI] = new BufferedImage(image[0].getWidth(),
+                            (image[0].getHeight() * (image.length / 3)),1);
+                    Graphics2D graphics2D = finalImage[finalI].createGraphics();
+                    int heightCurrent = 0;
+                    for (int j = finalI; j < image.length; j += 3) {
+                        graphics2D.drawImage(image[j], 0, heightCurrent, null);
+                        heightCurrent += 114;
                     }
+                    graphics2D.dispose();
+                });
+            }
 
+            executor.shutdown();
+            try {
+                executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            ExecutorService executorSave = Executors.newCachedThreadPool();
+
+            if (rgbAlignBox.isSelected()) {
+                executorSave.submit(() -> {
+                    rgbImage[0] = rgbAlign(finalImage[2], finalImage[1], finalImage[0]);
+                    saveImage(rgbImage[0], iteration, "RGB");
+                    rgbImage[0].flush();
+                });
+            }
+
+            if (!rgbOnlyBox.isSelected()) {
+                String[] array = {"blue_channel", "green_channel", "red_channel"};
+                for (int i = 0; i < 3; i++) {
+                    int finalI = i;
+                    executorSave.submit(() -> saveImage(finalImage[finalI], iteration, array[finalI]));
+                }
+            }
+
+            executorSave.shutdown();
+            try {
+                executorSave.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            for (int i = 0; i < 3; i++) { finalImage[i].flush(); }
+
+            saved_images++;
+            Platform.runLater(() -> {
+                progressBar.setProgress((double) saved_images / paths.size());
+                statusLabel.setText("Processed " + saved_images + "/" + paths.size() + " files...");
+            });
+
+        }
+
+        try {
+            if (directory) {
+                if (saved_images == paths.size()) {
+                    if (openLaterBox.isSelected()) {
+                        Desktop.getDesktop().open(new File(original_directory_array.get(0)));
+                    }
                     Platform.runLater(() -> {
                         progressBar.setProgress(0);
                         statusLabel.setText("Idle");
                         disableCheckBoxes(false);
-                        if (!directory) showDialog("Success", "Done", "Finished processing file "
-                                + name_array.get(iteration), false);
                     });
-                } catch (InterruptedException | IOException e) {
-                    showDialog("Error", "An error happened", "", true);
-                    e.printStackTrace();
                 }
-            };
-            Thread threadWait = new Thread(runnableWait);
-            threadWait.start();
-        } else {
-            Runnable runnableB = () -> {
-                finalBlueImage[0] = new BufferedImage(image[0].getWidth(),
-                        (image[0].getHeight() * (image.length / 3)),1);
-                Graphics2D g2dB = finalBlueImage[0].createGraphics();
-                int heightCurrentB = 0;
-                for (int i = 0; i < image.length; i += 3) { //go through all blue framelets
-                    g2dB.drawImage(image[i], 0, heightCurrentB, null);
-                    heightCurrentB += 114;
+            } else {
+                if (openLaterBox.isSelected()) {
+                    Desktop.getDesktop().open(new File(original_directory_array.get(iteration) + "/" +
+                            name_array.get(iteration)));
                 }
-                g2dB.dispose();
-            };
-            Thread threadB = new Thread(runnableB);
-            threadB.start();
-
-            Runnable runnableG = () -> {
-                finalGreenImage[0] = new BufferedImage(image[0].getWidth(),
-                        (image[0].getHeight() * (image.length / 3)),1);
-                Graphics2D g2dG = finalGreenImage[0].createGraphics();
-                int heightCurrentG = 0;
-                for (int i = 1; i < image.length; i += 3) { //go through all green framelets
-                    g2dG.drawImage(image[i], 0, heightCurrentG, null);
-                    heightCurrentG += 114;
-                }
-                g2dG.dispose();
-            };
-            Thread threadG = new Thread(runnableG);
-            threadG.start();
-
-            Runnable runnableR = () -> {
-                finalRedImage[0] = new BufferedImage(image[0].getWidth(),
-                        (image[0].getHeight()*(image.length/3)),1);
-                Graphics2D g2dR = finalRedImage[0].createGraphics();
-                int heightCurrentR =0;
-                for (int i=2;i<image.length; i += 3) { //go through all red framelets
-                    g2dR.drawImage(image[i], 0, heightCurrentR, null);
-                    heightCurrentR +=114;
-                }
-                g2dR.dispose();
-            };
-            Thread threadR = new Thread(runnableR);
-            threadR.start();
-
-            Runnable runnable = () -> {
-                try {
-                    threadB.join();
-                    threadG.join();
-                    threadR.join();
-
-                    if (!rgbOnlyBox.isSelected()) {
-                        Runnable runnableSaveR = () -> saveImage(finalRedImage[0], iteration, "red_channel");
-                        Thread threadSaveR = new Thread(runnableSaveR);
-                        threadSaveR.start();
-
-                        Runnable runnableSaveG = () -> saveImage(finalGreenImage[0], iteration, "green_channel");
-                        Thread threadSaveG = new Thread(runnableSaveG);
-                        threadSaveG.start();
-
-                        Runnable runnableSaveB = () -> saveImage(finalBlueImage[0], iteration, "blue_channel");
-                        Thread threadSaveB = new Thread(runnableSaveB);
-                        threadSaveB.start();
-
-                        threadSaveR.join();
-                        threadSaveG.join();
-                        threadSaveB.join();
+                Platform.runLater(() -> {
+                    progressBar.setProgress(0);
+                    statusLabel.setText("Idle");
+                    disableCheckBoxes(false);
+                    if (saved_images > 0) {
+                        showDialog("Success", "Done", "Finished processing file " +
+                                name_array.get(iteration), false);
                     }
-
-
-                    if (rgbAlignBox.isSelected()) {
-                        Runnable runnableAlign = () -> {
-                            rgbImage[0] = rgbAlign(finalRedImage[0], finalGreenImage[0], finalBlueImage[0]);
-                            saveImage(rgbImage[0], iteration, "RGB");
-                        };
-                        Thread threadAlign = new Thread(runnableAlign);
-                        threadAlign.start();
-                        threadAlign.join();
-                        rgbImage[0].flush();
-                    }
-
-                    finalBlueImage[0].flush();
-                    finalBlueImage[0].flush();
-                    finalBlueImage[0].flush();
-
-                    saved_images++;
-
-                    if (directory) {
-                        if (saved_images == paths.size()) {
-                            if (openLaterBox.isSelected()) {
-                                Desktop.getDesktop().open(new File(original_directory_array.get(0)));
-                            }
-                            Platform.runLater(() -> {
-                                progressBar.setProgress(0);
-                                statusLabel.setText("Idle");
-                                disableCheckBoxes(false);
-                            });
-                        }
-                    } else {
-                        if (openLaterBox.isSelected()) {
-                            Desktop.getDesktop().open(new File(original_directory_array.get(iteration) + "/" +
-                                    name_array.get(iteration)));
-                        }
-                        Platform.runLater(() -> {
-                            progressBar.setProgress(0);
-                            statusLabel.setText("Idle");
-                            disableCheckBoxes(false);
-                            if (saved_images > 0) {
-                                showDialog("Success", "Done", "Finished processing file " +
-                                        name_array.get(iteration), false);
-                            }
-                        });
-                    }
-                } catch (InterruptedException | IOException e) {
-                    showDialog("Error", "An error happened", "", true);
-                    e.printStackTrace();
-                }
-            };
-            Thread thread = new Thread(runnable);
-            thread.start();
+                });
+            }
+        } catch (IOException e) {
+            showDialog("Error", "An error happened", "", true);
+            e.printStackTrace();
         }
-
     }
 
     /**
@@ -532,5 +497,4 @@ public final class Main extends Application {
         }
         openLaterBox.setDisable(enabled);
     }
-
 }
