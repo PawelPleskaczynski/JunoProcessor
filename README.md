@@ -17,12 +17,19 @@ images.
 Open the software using `JunoProcessor.jar` executable, located in
 [Releases](https://github.com/PawelPleskaczynski/JunoProcessor/releases) tab.
 
+Note: on computers with low RAM, I recommend to launch the app with at
+least `Xmx2G` argument. Example:
+
+`java -jar -Xmx2G JunoProcessor.jar`
+
+I recommend to have at least 8 GB of RAM for good performance.
+
 ##### Processing single image
 
 - Load a JunoCam RAW image by clicking `Open a picture` button. Select your
 image via your default file selector.
 
-- Select `CH4` checkbox if the image is not RGB, but methane.
+- Change values of the checkboxes if necessary.
 
 - Click `Process the image` button to start processing the data. Please allow
 software up to a minute to process the data.
@@ -36,10 +43,11 @@ after the input file's name.
 - Load a directory with RAW JunoCam images by clicking `Batch processing`
 button.
 
-- Select `CH4` checkbox if the image is not RGB, but methane.
+- Change values of the checkboxes if necessary.
 
 - Click `Process the image` button to start processing the data. Please allow
-software to work for a couple of minutes.
+software to work for a couple of minutes. You can see the progress on
+progress bar.
 
 - Once processing is finished, you'll be able to retrieve final products
 in the same directory as input data, in directories named after the input file's
@@ -54,11 +62,6 @@ recommend IMG2PNG software to convert from PDS IMG format to PNG.
 due to build of JunoCam system. We are not aware of any methods to
 reduce this any further than our software does, without utilizing
 non-linear geometric reduction.
-[//]: # (- Why is the color balance so red after
-the processing? This is admittedly a bug in software for which we can
-not find a solution as of yet. It can be readily fixed by applying
-color calibration methods in further data processing. This bug is
-however minor and does not affect data quality.)
 
 For any further inquiry, please contact us at:
 
