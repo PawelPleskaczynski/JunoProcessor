@@ -9,6 +9,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
@@ -36,21 +37,22 @@ import java.util.concurrent.TimeUnit;
  */
 public final class Main extends Application {
 
-    private Label selectedLabel = new Label("No image selected");
-    private Label statusLabel = new Label("Idle");
-    private Label creditsLabel = new Label("Made by Pawel Pleskaczynski and Karol Masztalerz");
-    private Button processButton = new Button("Process the image");
-    private Button openButton = new Button("Open a picture");
-    private Button openDirectory = new Button("Batch processing");
-    private CheckBox methaneBox = new CheckBox("Image is single-band CH4");
-    private CheckBox rgbAlignBox = new CheckBox("RGB Align");
-    private CheckBox rgbOnlyBox = new CheckBox("Output RGB only");
-    private CheckBox openLaterBox = new CheckBox("Open files after processing");
-    private ProgressBar progressBar = new ProgressBar();
+    private final Label selectedLabel = new Label("No image selected");
+    private final Label statusLabel = new Label("Idle");
+    private final Label creditsLabel = new Label("Made by Pawel Pleskaczynski and Karol Masztalerz");
+    private final Button processButton = new Button("Process the image");
+    private final Button openButton = new Button("Open a picture");
+    private final Button openDirectory = new Button("Batch processing");
+    private final CheckBox methaneBox = new CheckBox("Image is single-band CH4");
+    private final CheckBox rgbAlignBox = new CheckBox("RGB Align");
+    private final CheckBox rgbOnlyBox = new CheckBox("Output RGB only");
+    private final CheckBox openLaterBox = new CheckBox("Open files after processing");
+    private final ProgressBar progressBar = new ProgressBar();
+    private final NumberField overlapField = new NumberField();
 
-    private ArrayList<String> paths = new ArrayList<>();
-    private ArrayList<String> original_directory_array = new ArrayList<>();
-    private ArrayList<String> name_array = new ArrayList<>();
+    private final ArrayList<String> paths = new ArrayList<>();
+    private final ArrayList<String> original_directory_array = new ArrayList<>();
+    private final ArrayList<String> name_array = new ArrayList<>();
 
     private boolean directory;
     private int saved_images = 0;
@@ -65,8 +67,20 @@ public final class Main extends Application {
         stage.setTitle("Juno Processor");
         Label loadLabel = new Label("First, load desired Juno image");
         Label processLabel = new Label("Then process the image using button below");
+        Label overlapLabel = new Label("Adjust image overlap by:");
         progressBar.setProgress(0);
         processButton.setDisable(true);
+
+        HBox box = new HBox();
+        box.getChildren().addAll(overlapLabel, overlapField);
+        overlapField.setMaxSize(50,30);
+        box.setSpacing(10);
+
+        Tooltip overlapToolip = new Tooltip();
+        overlapToolip.setText("Input by how many pixels you'd like\n" +
+                              "to change default overlap (for RGB images\n" +
+                              "it's 114px, for CH4 images it's 116px)");
+        overlapField.setTooltip(overlapToolip);
 
         FileChooser fileChooser = new FileChooser();
 
@@ -153,6 +167,7 @@ public final class Main extends Application {
         GridPane.setConstraints(rgbAlignBox, 1, 1);
         GridPane.setConstraints(rgbOnlyBox, 1, 2);
         GridPane.setConstraints(openLaterBox, 1, 3);
+        GridPane.setConstraints(box, 1, 4);
         GridPane.setConstraints(openButton, 0, 1);
         GridPane.setConstraints(openDirectory, 0, 2);
         GridPane.setConstraints(selectedLabel, 0, 4);
@@ -163,7 +178,7 @@ public final class Main extends Application {
         GridPane.setConstraints(creditsLabel, 0, 10);
         inputGridPane.setHgap(6);
         inputGridPane.setVgap(6);
-        inputGridPane.getChildren().addAll(loadLabel, methaneBox, rgbAlignBox, rgbOnlyBox, openLaterBox, openButton,
+        inputGridPane.getChildren().addAll(loadLabel, methaneBox, rgbAlignBox, rgbOnlyBox, openLaterBox, box, openButton,
                 openDirectory, selectedLabel, statusLabel, progressBar, processLabel, processButton, creditsLabel);
 
         final Pane rootGroup = new VBox(12);
@@ -227,8 +242,7 @@ public final class Main extends Application {
         try {
             return ImageIO.read(file);
         } catch (IOException e) {
-            showDialog("Error", "An error happened", "Cannot read file " + paths.get(i),
-                    true);
+            showDialog("Cannot read file " + paths.get(i));
             e.printStackTrace();
             return null;
         }
@@ -279,7 +293,7 @@ public final class Main extends Application {
                 int heightCurrent = 0;
                 for (BufferedImage bufferedImage : image) {
                     g2d.drawImage(bufferedImage, 0, heightCurrent, null);
-                    heightCurrent += 116;
+                    heightCurrent += 116 + (overlapField.getText().trim().isEmpty() ? 0 : Integer.parseInt(overlapField.getText()));
                 }
 
                 g2d.dispose();
@@ -305,7 +319,7 @@ public final class Main extends Application {
                     int heightCurrent = 0;
                     for (int j = finalI; j < image.length; j += 3) {
                         graphics2D.drawImage(image[j], 0, heightCurrent, null);
-                        heightCurrent += 114;
+                        heightCurrent += 114 + (overlapField.getText().trim().isEmpty() ? 0 : Integer.parseInt(overlapField.getText()));
                     }
                     graphics2D.dispose();
                 });
@@ -374,14 +388,10 @@ public final class Main extends Application {
                     progressBar.setProgress(0);
                     statusLabel.setText("Idle");
                     disableCheckBoxes(false);
-                    if (saved_images > 0) {
-                        showDialog("Success", "Done", "Finished processing file " +
-                                name_array.get(iteration), false);
-                    }
                 });
             }
         } catch (IOException e) {
-            showDialog("Error", "An error happened", "", true);
+            showDialog("");
             e.printStackTrace();
         }
     }
@@ -402,9 +412,9 @@ public final class Main extends Application {
             imageOutputStream.close();
         } catch (IOException e) {
             e.printStackTrace();
-            showDialog("Error", "An error happened", "Cannot write to " +
+            showDialog("Cannot write to " +
                     original_directory_array.get(iteration) + "/" + name_array.get(iteration) + "/" +
-                    name_array.get(iteration) + "_" + name + ".png", true);
+                    name_array.get(iteration) + "_" + name + ".png");
         }
     }
 
@@ -456,24 +466,19 @@ public final class Main extends Application {
     }
 
     /**
-     * Show a success/error dialog
-     * @param title - title of the dialog
-     * @param header - header text
+     * Show a error dialog
      * @param message - message text
-     * @param error - boolean, if true, error icon will be shown, else, information icon will be shown
      */
-    private void showDialog(String title, String header, String message, boolean error) {
+    private void showDialog(String message) {
         Platform.runLater(() -> {
-            if (error) {
-                statusLabel.setText("Idle");
-                progressBar.setProgress(0);
-                disableCheckBoxes(false);
-            }
+            statusLabel.setText("Idle");
+            progressBar.setProgress(0);
+            disableCheckBoxes(false);
 
-            Alert alert = new Alert(error ? Alert.AlertType.ERROR : Alert.AlertType.INFORMATION);
+            Alert alert = new Alert(Alert.AlertType.ERROR);
             alert.initStyle(StageStyle.UTILITY);
-            alert.setTitle(title);
-            alert.setHeaderText(header);
+            alert.setTitle("Error");
+            alert.setHeaderText("An error happened");
             Text text = new Text(message);
             text.setWrappingWidth(400);
             alert.getDialogPane().setContent(text);
