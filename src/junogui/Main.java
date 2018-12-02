@@ -40,6 +40,7 @@ public final class Main extends Application {
     private final Label selectedLabel = new Label("No image selected");
     private final Label statusLabel = new Label("Idle");
     private final Label creditsLabel = new Label("Made by Pawel Pleskaczynski and Karol Masztalerz");
+    private final Label overlapLabel = new Label("Adjust image overlap by:");
     private final Button processButton = new Button("Process the image");
     private final Button openButton = new Button("Open a picture");
     private final Button openDirectory = new Button("Batch processing");
@@ -67,7 +68,6 @@ public final class Main extends Application {
         stage.setTitle("Juno Processor");
         Label loadLabel = new Label("First, load desired Juno image");
         Label processLabel = new Label("Then process the image using button below");
-        Label overlapLabel = new Label("Adjust image overlap by:");
         progressBar.setProgress(0);
         processButton.setDisable(true);
 
@@ -184,7 +184,9 @@ public final class Main extends Application {
         final Pane rootGroup = new VBox(12);
         rootGroup.getChildren().addAll(inputGridPane);
         rootGroup.setPadding(new Insets(12, 12, 12, 12));
-        stage.setScene(new Scene(rootGroup));
+        Scene scene = new Scene(rootGroup);
+        scene.getStylesheets().add("theme.css");
+        stage.setScene(scene);
         stage.show();
     }
 
@@ -501,5 +503,7 @@ public final class Main extends Application {
             rgbOnlyBox.setDisable(enabled);
         }
         openLaterBox.setDisable(enabled);
+        overlapField.setDisable(enabled);
+        overlapLabel.setDisable(enabled);
     }
 }
